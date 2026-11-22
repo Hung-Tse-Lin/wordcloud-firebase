@@ -1,0 +1,23 @@
+# 敏感資料與環境變數防護
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+credentials.json
+service-account*.json
+client_secret*.json
+*.kdbx
+*.pwd
+
+# 依賴套件與暫存檔
+node_modules/
+npm-debug.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

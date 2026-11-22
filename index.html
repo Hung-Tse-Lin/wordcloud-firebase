@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>即時互動文字雲 | Live Word Cloud</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <!-- WordCloud2 & QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text-main: #f3f4f6;
+      --text-sub: #9ca3af;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --success: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: radial-gradient(circle at 15% 15%, #1e1b4b 0%, var(--bg) 60%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* 頂部導航欄 */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: rgba(11, 15, 25, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      width: 2.25rem;
+      height: 2.25rem;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    /* 主要容器 */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 1.5rem;
+      padding: 1.5rem 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+      }
+    }
+
+    /* 文字雲展示區 */
+    .canvas-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      min-height: 540px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .canvas-wrapper {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #wordcloud-canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .empty-state {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: var(--text-sub);
+      pointer-events: none;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      opacity: 0.6;
+    }
+
+    /* 浮動輸入條 */
+    .input-bar {
+      padding: 1.25rem;
+      border-top: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .input-field {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.75rem 1.25rem;
+      color: white;
+      font-size: 1rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* 側邊資訊面板 */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .side-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* 統計指標 */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      border-radius: 0.75rem;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 1.75rem;
+      font-weight: 900;
+      color: #60a5fa;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      margin-top: 0.25rem;
+    }
+
+    /* 熱門排行榜 */
+    .rank-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+
+    .rank-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .rank-badge {
+      width: 1.5rem;
+      height: 1.5rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      margin-right: 0.5rem;
+    }
+
+    .rank-item:nth-child(1) .rank-badge {
+      background: #f59e0b;
+      color: #000;
+    }
+    .rank-item:nth-child(2) .rank-badge {
+      background: #94a3b8;
+      color: #000;
+    }
+    .rank-item:nth-child(3) .rank-badge {
+      background: #b45309;
+      color: #fff;
+    }
+
+    .rank-word {
+      flex: 1;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rank-count {
+      color: #93c5fd;
+      font-weight: 700;
+      font-size: 0.8rem;
+      background: rgba(59, 130, 246, 0.15);
+      padding: 0.2rem 0.5rem;
+      border-radius: 1rem;
+    }
+
+    /* 最新跑馬標籤 */
+    .recent-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .tag {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.625rem;
+      border-radius: 1rem;
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* 彈窗樣式 (QR Code) */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal-card {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 2rem;
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-desc {
+      font-size: 0.875rem;
+      color: var(--text-sub);
+      margin-bottom: 1.5rem;
+    }
+
+    #qrcode {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 0.75rem;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(16, 185, 129, 0.95);
+      color: white;
+      padding: 0.75rem 1.25rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+      display: none;
+      z-index: 200;
+      animation: fadeIn 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部導航 -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">☁️</div>
+      <div class="brand-title">即時互動文字雲</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-secondary" id="btn-qrcode">
+        📱 投影 QR Code
+      </button>
+      <button class="btn-danger" id="btn-clear">
+        🗑️ 清空文字雲
+      </button>
+    </div>
+  </header>
+
+  <!-- 主內容區 -->
+  <main>
+    <!-- 左側文字雲展示與輸入 -->
+    <section class="canvas-container">
+      <div class="canvas-wrapper" id="canvas-wrapper">
+        <canvas id="wordcloud-canvas"></canvas>
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">💭</div>
+          <p>目前尚無資料，快在下方輸入詞彙吧！</p>
+        </div>
+      </div>
+      <!-- 底部輸入框 -->
+      <form class="input-bar" id="word-form">
+        <input
+          type="text"
+          id="word-input"
+          class="input-field"
+          placeholder="輸入你想分享的想法、關鍵字（例如：AI、創新、雙向互動...）"
+          maxlength="20"
+          autocomplete="off"
+          required
+        />
+        <button type="submit" class="btn-primary" id="btn-submit">
+          🚀 送出
+        </button>
+      </form>
+    </section>
+
+    <!-- 右側面板 -->
+    <aside class="sidebar">
+      <!-- 數據統計 -->
+      <div class="side-card">
+        <div class="card-title">📊 即時互動統計</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-num" id="total-words">0</div>
+            <div class="stat-label">累積投稿詞數</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="unique-words">0</div>
+            <div class="stat-label">不重複關鍵字</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 熱門排行榜 -->
+      <div class="side-card">
+        <div class="card-title">🔥 熱門排行 TOP 5</div>
+        <ul class="rank-list" id="rank-list">
+          <li class="rank-item" style="color: var(--text-sub); justify-content: center;">尚無足夠數據</li>
+        </ul>
+      </div>
+
+      <!-- 最新投稿 -->
+      <div class="side-card">
+        <div class="card-title">⚡ 最新輸入詞彙</div>
+        <div class="recent-tags" id="recent-tags">
+          <span style="color: var(--text-sub); font-size: 0.85rem;">等待第一筆輸入...</span>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- QR Code 彈窗 -->
+  <div class="modal-overlay" id="modal-qrcode">
+    <div class="modal-card">
+      <div class="modal-title">手機掃碼參與</div>
+      <div class="modal-desc">掃描 QR Code 即可在手機上開啟並即時投稿！</div>
+      <div id="qrcode"></div>
+      <button class="btn-secondary" style="width: 100%; justify-content: center;" id="btn-close-modal">關閉視窗</button>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast" id="toast">已成功送出詞彙！</div>
+
+  <!-- Firebase 模組化腳本 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      onSnapshot,
+      serverTimestamp,
+      getDocs,
+      deleteDoc,
+      doc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Firebase 配置 (已綁定 my-teaching-tools-69e57)
+    const firebaseConfig = {
+      projectId: "my-teaching-tools-69e57",
+      appId: "1:223570923227:web:6d6ca173cdb1962c6646fe",
+      authDomain: "my-teaching-tools-69e57.firebaseapp.com",
+      apiKey: "AIzaSyAVrRwlMlSnBl-JluHu0jXECzW5j1XgzPM",
+      storageBucket: "my-teaching-tools-69e57.firebasestorage.app",
+      messagingSenderId: "223570923227"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const wordsCol = collection(db, "wordcloud_words");
+
+    // UI 元件參照
+    const canvas = document.getElementById("wordcloud-canvas");
+    const canvasWrapper = document.getElementById("canvas-wrapper");
+    const emptyState = document.getElementById("empty-state");
+    const wordForm = document.getElementById("word-form");
+    const wordInput = document.getElementById("word-input");
+    const btnSubmit = document.getElementById("btn-submit");
+    const totalWordsEl = document.getElementById("total-words");
+    const uniqueWordsEl = document.getElementById("unique-words");
+    const rankListEl = document.getElementById("rank-list");
+    const recentTagsEl = document.getElementById("recent-tags");
+    const modalQrCode = document.getElementById("modal-qrcode");
+    const btnQrCode = document.getElementById("btn-qrcode");
+    const btnCloseModal = document.getElementById("btn-close-modal");
+    const btnClear = document.getElementById("btn-clear");
+    const toast = document.getElementById("toast");
+
+    let rawWords = [];
+    let qrGenerated = false;
+
+    // 提示 Toast
+    function showToast(msg, isError = false) {
+      toast.textContent = msg;
+      toast.style.background = isError ? "rgba(239, 68, 68, 0.95)" : "rgba(16, 185, 129, 0.95)";
+      toast.style.display = "block";
+      setTimeout(() => {
+        toast.style.display = "none";
+      }, 2500);
+    }
+
+    // 自動計算 Canvas 最佳解析度
+    function resizeCanvas() {
+      const rect = canvasWrapper.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      if (rawWords.length > 0) {
+        renderWordCloud(rawWords);
+      }
+    }
+
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+    });
+
+    // 渲染文字雲
+    function renderWordCloud(items) {
+      if (!items || items.length === 0) {
+        emptyState.style.display = "flex";
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
+      emptyState.style.display = "none";
+
+      // 統計詞頻
+      const freqMap = {};
+      items.forEach(item => {
+        const text = (item.text || "").trim();
+        if (text) {
+          freqMap[text] = (freqMap[text] || 0) + 1;
+        }
+      });
+
+      const list = Object.entries(freqMap).map(([text, count]) => [text, count]);
+
+      // 動態縮放權重
+      const maxCount = Math.max(...list.map(w => w[1]), 1);
+      const minDimension = Math.min(canvas.width, canvas.height);
+      const scaleFactor = Math.max(12, minDimension / 20);
+
+      WordCloud(canvas, {
+        list: list,
+        gridSize: Math.round(16 * canvas.width / 1024),
+        weightFactor: function (size) {
+          return Math.max(16, (size / maxCount) * scaleFactor + 14);
+        },
+        fontFamily: "'Noto Sans TC', sans-serif",
+        color: function () {
+          const colors = [
+            "#60a5fa", "#38bdf8", "#818cf8", "#a78bfa",
+            "#c084fc", "#34d399", "#f472b6", "#fbbf24"
+          ];
+          return colors[Math.floor(Math.random() * colors.length)];
+        },
+        rotateRatio: 0.25,
+        rotationSteps: 2,
+        backgroundColor: "transparent",
+        drawOutOfBound: false,
+        shrinkToFit: true
+      });
+
+      updateSidebarStats(items, freqMap);
+    }
+
+    // 更新側邊資訊
+    function updateSidebarStats(items, freqMap) {
+      totalWordsEl.textContent = items.length;
+      uniqueWordsEl.textContent = Object.keys(freqMap).length;
+
+      // 排序熱門排行榜
+      const sorted = Object.entries(freqMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      if (sorted.length === 0) {
+        rankListEl.innerHTML = `<li class="rank-item" style="color: var(--text-sub); justify-content: center;">尚無資料</li>`;
+      } else {
+        rankListEl.innerHTML = sorted.map(([word, count], idx) => `
+          <li class="rank-item">
+            <span class="rank-badge">${idx + 1}</span>
+            <span class="rank-word" title="${word}">${word}</span>
+            <span class="rank-count">${count} 次</span>
+          </li>
+        `).join("");
+      }
+
+      // 最新 15 筆標籤
+      const recent = items.slice(-15).reverse();
+      if (recent.length === 0) {
+        recentTagsEl.innerHTML = `<span style="color: var(--text-sub); font-size: 0.85rem;">等待第一筆輸入...</span>`;
+      } else {
+        recentTagsEl.innerHTML = recent.map(item => `
+          <span class="tag">${item.text}</span>
+        `).join("");
+      }
+    }
+
+    // 即時監聽 Firestore
+    onSnapshot(wordsCol, (snapshot) => {
+      rawWords = [];
+      snapshot.forEach(docSnap => {
+        rawWords.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      resizeCanvas();
+    }, (error) => {
+      console.error("Firestore 即時監聽失敗:", error);
+      showToast("無法連接資料庫，請檢查安全規則", true);
+    });
+
+    // 處理表單送出
+    wordForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = wordInput.value.trim();
+      if (!text) return;
+
+      btnSubmit.disabled = true;
+      try {
+        await addDoc(wordsCol, {
+          text: text,
+          created_at: serverTimestamp()
+        });
+        wordInput.value = "";
+        showToast("🎉 送出成功！");
+      } catch (err) {
+        console.error("寫入失敗:", err);
+        showToast("送出失敗: " + err.message, true);
+      } finally {
+        setTimeout(() => {
+          btnSubmit.disabled = false;
+          wordInput.focus();
+        }, 800);
+      }
+    });
+
+    // 清空資料庫按鈕
+    btnClear.addEventListener("click", async () => {
+      const confirmClear = confirm("確定要清空目前所有的文字雲資料嗎？（此動作無法復原）");
+      if (!confirmClear) return;
+
+      try {
+        const snap = await getDocs(wordsCol);
+        const deletePromises = snap.docs.map(d => deleteDoc(doc(db, "wordcloud_words", d.id)));
+        await Promise.all(deletePromises);
+        showToast("已清空文字雲資料庫！");
+      } catch (err) {
+        console.error("清空失敗:", err);
+        showToast("清空失敗: " + err.message, true);
+      }
+    });
+
+    // QR Code 彈窗控制
+    btnQrCode.addEventListener("click", () => {
+      modalQrCode.style.display = "flex";
+      if (!qrGenerated) {
+        const qrEl = document.getElementById("qrcode");
+        qrEl.innerHTML = "";
+        new QRCode(qrEl, {
+          text: window.location.href,
+          width: 200,
+          height: 200,
+          colorDark: "#0f172a",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+        qrGenerated = true;
+      }
+    });
+
+    btnCloseModal.addEventListener("click", () => {
+      modalQrCode.style.display = "none";
+    });
+
+    modalQrCode.addEventListener("click", (e) => {
+      if (e.target === modalQrCode) {
+        modalQrCode.style.display = "none";
+      }
+    });
+
+    // 初始調整 Canvas 尺寸
+    setTimeout(resizeCanvas, 100);
+  </script>
+</body>
+</html>
